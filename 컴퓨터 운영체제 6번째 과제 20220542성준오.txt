@@ -1,0 +1,238 @@
+#include <stdio.h>
+#include <pthread.h>
+
+int sum = 0; // 두 스레드가 공유하는 변수
+
+void* worker(void* arg) { // 스레드 코드
+	for(int i=0; i<1000000; i++) {
+		sum = sum + 10;
+	}
+}
+
+int main() {
+	char *name[] = {"황기태", "이찬수"};
+	pthread_t tid[2]; // 2개의 스레드 ID를 담을 배열
+pthread_attr_t attr[2]; // 2개의 스레드 정보를 담을 배열
+
+pthread_attr_init(&attr[0]); // 디폴트 속성으로 초기화
+pthread_attr_init(&attr[1]); // 디폴트 속성으로 초기화
+
+	pthread_create(&tid[0], &attr[0], worker, name[0]);  // 스레드 생성
+	pthread_create(&tid[1], &attr[1], worker, name[1]);  // 스레드 생성
+
+	pthread_join(tid[0], NULL);
+	pthread_join(tid[1], NULL);
+
+	printf("sum = %d\n", sum); // 두 스레드 종료 후 sum 출력
+
+	return 0;
+}
+
+
+int main() {
+	char *name[] = {"황기태", "이찬수"};
+	pthread_t tid[2]; // 두 스레드의 ID를 저장할 배열
+
+   pthread_attr_t attr[2]; // 스레드 정보를 담을 구조체
+
+   pthread_attr_init(&attr[0]); // 디폴트 속성으로 초기화
+   pthread_attr_init(&attr[1]); // 디폴트 속성으로 초기화
+
+	pthread_spin_init(&lock, PTHREAD_PROCESS_PRIVATE); 
+	// lock을 한 프로세스에 속한 스레드만이 공유하는 변수로 선언
+
+	pthread_create(&tid[0], &attr[0], worker, name[0]);  // 스레드 생성
+	pthread_create(&tid[1], &attr[1], worker, name[1]); // 스레드 생성
+
+	pthread_join(tid[0], NULL);
+	pthread_join(tid[1], NULL);
+
+	printf("최종 sum = %d\n", sum); 
+
+	pthread_spin_destroy(&lock);
+
+	return 0;
+}
+int main() {
+	char *name[] = {"황기태", "이찬수"};
+	pthread_t tid[2];
+pthread_attr_t attr[2]; // 스레드 정보를 담을 구조체
+
+pthread_attr_init(&attr[0]); // 디폴트 속성으로 초기화
+pthread_attr_init(&attr[1]); // 디폴트 속성으로 초기화
+
+	pthread_mutex_init(&lock, NULL); // 뮤텍스락 변수 lock 초기화
+
+	pthread_create(&tid[0], &attr[0], worker, name[0]);  // 스레드 생성
+	pthread_create(&tid[1], &attr[1], worker, name[1]); // 스레드 생성
+
+	pthread_join(tid[0], NULL);
+	pthread_join(tid[1], NULL);
+
+	printf("최종 sum = %d\n", sum);
+
+	pthread_mutex_destroy(&lock); // 뮤텍스락 lock 사용 끝
+
+	return 0;
+}
+int main() {
+	char *name[] = {"황기태", "이찬수"};
+	pthread_t tid[2]; // 두 스레드의 ID를 저장할 배열
+
+   pthread_attr_t attr[2]; // 스레드 정보를 담을 구조체
+
+   pthread_attr_init(&attr[0]); // 디폴트 속성으로 초기화
+   pthread_attr_init(&attr[1]); // 디폴트 속성으로 초기화
+
+	pthread_spin_init(&lock, PTHREAD_PROCESS_PRIVATE); 
+	// lock을 한 프로세스에 속한 스레드만이 공유하는 변수로 선언
+
+	pthread_create(&tid[0], &attr[0], worker, name[0]);  // 스레드 생성
+	pthread_create(&tid[1], &attr[1], worker, name[1]); // 스레드 생성
+
+	pthread_join(tid[0], NULL);
+	pthread_join(tid[1], NULL);
+
+	printf("최종 sum = %d\n", sum); 
+
+	pthread_spin_destroy(&lock);
+
+	return 0;
+}
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+sem_t toiletsem; // POSIX 세마포 구조체로 모든 스레드에 의해 공유
+
+void* guest(void* arg) { // 고객의 행동을 묘사하는 스레드 코드
+    int cnt = -1;
+
+    sem_wait(&toiletsem); // P 연산. 자원 사용 요청. 세마포의 counter 값 1 감소
+    sem_getvalue(&toiletsem, &cnt); //  세마포의 counter 을 cnt 변수로 읽어오기
+    printf("고객%s 화장실에 들어간다... 세마포 counter = %d\n", (char*)arg, cnt);
+
+    sleep(1); // 1초 동안 화장실을 사용한다.
+
+    printf("고객%s 화장실에서 나온다.\n", (char*)arg);
+    sem_post(&toiletsem); // V 연산. 화장실 사용을 끝냈음을 알림
+}
+
+#define NO 0          // 자식 프로세스와 세마포 공유하지 않음
+#define MAX_COUNTER 3 // 자원의 개수, 동시에 들어갈 수 있는 스레드의 개수
+
+int main() {
+    int counter = -1;
+    char *name[] = {"1", "2", "3", "4", "5"};
+    pthread_t t[5]; // 스레드구조체
+
+    // 세마포 초기화 : MAX_COUNTER 명이 동시에 사용
+    int res = sem_init(&toiletsem, NO, MAX_COUNTER);
+    if(res == -1) {
+        printf("semaphore is not supported\n");
+        return 0;
+    }
+    sem_getvalue(&toiletsem, &counter); //  세마포의 현재 counter 값 읽기
+    printf("세마포 counter = %d\n", counter);
+
+    for(int i=0; i<5; i++)
+        pthread_create(&t[i], NULL, guest, (void*)name[i]); // 5명의 고객(스레드) 생성
+
+    for(int i=0; i<5; i++)
+        pthread_join(t[i],NULL); // 모든 고객이 소멸할 때까지 대기
+
+    sem_getvalue(&toiletsem, &counter); //  세마포의 현재 counter 값 읽기
+    printf("세마포 counter = %d\n", counter);
+    sem_destroy(&toiletsem); //세마포 기능 소멸
+
+    return 0;
+}
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+#define N_COUNTER 4 // 공유 버퍼에 저장할 정수 공간의 개수
+#define MILLI 1000
+
+void mywrite(int n);
+int myread();
+
+pthread_mutex_t critical_section;
+sem_t semWrite, semRead; // POSIX 세마포
+int queue[N_COUNTER]; // 공유 버퍼
+int wIdx; // 생산자 스레드가 queue[]에 저장할 다음 인덱스
+int rIdx; // 소비자 스레드가 queue[]에서 읽을 다음 인덱스
+
+void* producer(void* arg) { // 생산자 스레드 함수
+    for(int i=0; i<10; i++) {
+        mywrite(i); // 정수 i를 공유 버퍼에 저장
+
+        // m 밀리초 동안 잠을 잔다.
+        int m = rand()%10; // 0~9 사이의 랜덤한 정수
+        usleep(MILLI*m*10); // m*10 밀리초동안 잠자기
+    }
+    return NULL;
+}
+
+void* consumer(void* arg) { // 소비자 스레드 함수
+    for(int i=0; i<10; i++) {
+        int n = myread(); // 공유 버퍼의 맨 앞에 있는 정수 읽어 리턴
+
+        // m 밀리초 동안 잠을 잔다.
+        int m = rand()%10; // 0~9 사이의 랜덤한 정수
+        usleep(MILLI*m*10); // m*10 밀리초 동안 잠자기
+    }
+    return NULL;
+}
+void mywrite(int n) { // 정수 n을 queue[]에 삽입
+        sem_wait(&semWrite); // queue[]에 쓸 수 있는지 요청
+        pthread_mutex_lock(&critical_section); // 뮤텍스 락 잠그기
+        queue[wIdx] = n; // 버퍼에 정수 n을 삽입한다.
+        wIdx++;
+        wIdx %= N_COUNTER;
+        pthread_mutex_unlock(&critical_section); // 뮤텍스 락 열기
+        printf("producer : wrote %d\n", n);
+        sem_post(&semRead); // consumer 스레드 깨우기
+}
+
+int myread() { // queue[]의 맨 앞에 있는 정수를 읽어 리턴
+        sem_wait(&semRead); // queue[]에서 읽을 수 있는지 요청
+        pthread_mutex_lock(&critical_section); // 뮤텍스 락 잠그기
+        int n = queue[rIdx]; // 버퍼에서 정수를 읽는다.
+        rIdx++;
+        rIdx %= N_COUNTER;
+        pthread_mutex_unlock(&critical_section); // 뮤텍스 락 열기
+        printf("\tconsumer : read %d\n", n);
+        sem_post(&semWrite); // producer 스레드 깨우기
+        return n;
+}
+
+int main() {
+    pthread_t t[2]; // 스레드구조체
+    srand(time(NULL)); // 난수 발생을 위한 seed 생성
+    pthread_mutex_init(&critical_section, NULL); // 뮤텍스 락 초기화
+
+   // 세마포 초기화 : N_COUNTER 개의 자원으로 초기화
+    int res = sem_init(&semWrite, 0, N_COUNTER); // 가용 버퍼의 개수 N_COUNTER
+    if(res == -1) {
+        printf("semaphore is not supported\n");
+        return 0;
+    }
+    sem_init(&semRead, 0, 0); // 가용버퍼의 개수를 0으로 초기화
+
+    // producer와 consumer 스레드 생성
+    pthread_create(&t[0], NULL, producer, NULL); // 생산자 스레드 생성
+    pthread_create(&t[1], NULL, consumer, NULL); // 소비자 스레드 생성
+
+    for(int i=0; i<2; i++)
+        pthread_join(t[i],NULL); // 모든 스레드가 소멸할 때까지 대기
+
+    sem_destroy(&semRead); // 세마포 기능 소멸
+    sem_destroy(&semWrite); // 세마포 기능 소멸
+    pthread_mutex_destroy(&critical_section); // 뮤텍스락 소멸
+    return 0; 
+}
+
