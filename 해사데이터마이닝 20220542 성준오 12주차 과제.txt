@@ -1,0 +1,39 @@
+20220542 성준오 12주차 과제
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 1. 데이터 불러오기
+raw_data = pd.read_csv('./survey_results_public.csv')
+
+# 2. 필요한 열만 선택
+target_data = raw_data[['Age', 'Country', 'LanguageHaveWorkedWith', 'LearnCode']]
+
+# 3. LearnCode 열에서 학습 방법 수집
+methods = target_data['LearnCode']
+
+# 4. 다중 응답 데이터를 리스트로 분할
+methods = methods.str.split(';')
+
+# 5. 각 방법을 개별 행으로 분리
+exploded_methods = methods.explode()
+
+# 6. 학습 방법별 빈도수 계산
+size_by_methods = exploded_methods.groupby(exploded_methods).size()
+
+# 7. 상위 10개 학습 방법 시각화
+size_by_methods.nlargest(10).plot.pie(
+    figsize=(5, 5),
+    autopct='%1.0f%%',
+    startangle=90,
+    shadow=False
+)
+
+# 8. 라벨 없애고, 제목 설정 (선택)
+plt.ylabel('')  # ylabel 제거
+plt.title('Top 10 Methods People Use to Learn to Code')
+
+# 9. 그래프 보여주기
+plt.tight_layout()
+plt.show()
