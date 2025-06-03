@@ -1,0 +1,55 @@
+해사데이터마이닝 13주차 과제 
+    
+                                             20220542 성준오
+
+
+ 필요한 라이브러리 설치
+
+!pip install folium
+
+CSV 파일 불러오기
+
+import pandas as pd
+data = pd.read_csv("seoul-metro-2021.logs.csv")
+station_info = pd.read_csv("seoul-metro-station-info.csv")
+
+출근/퇴근 시간 데이터 추출
+
+data['timestamp'] = pd.to_datetime(data['timestamp'], errors='coerce')
+morning_data = data[data['timestamp'].dt.hour < 9]
+evening_data = data[data['timestamp'].dt.hour > 17]
+
+역별 승하차 인원 집계
+
+morning_sum = morning_data.groupby("station_code")[["people_in", "people_out"]].sum()
+evening_sum = evening_data.groupby("station_code")[["people_in", "people_out"]].sum()
+
+역 정보와 결합
+
+station_info = station_info[["station.code", "geo.latitude", "geo.longitude"]].set_index("station.code")
+morning_joined = morning_sum.join(station_info)
+evening_joined = evening_sum.join(station_info)
+
+
+히트맵 시각화 (Folium 사용)
+from folium.plugins import HeatMap
+import folium
+
+m = folium.Map(location=[37.55, 126.98], zoom_start=12)
+HeatMap(morning_joined[['geo.latitude', 'geo.longitude', 'people_out']]).add_to(m)
+m.save("morning_out.html")
+
+
+1. 분석 목적
+서울 지하철 이용객 데이터를 활용해 출근(오전 9시 이전)과 퇴근(오후 5시 이후) 시간대의 승하차 인원을 시각화하고, 주요 유동 인구 밀집 역을 파악한다.
+
+ 2. 주요 과정
+- pandas로 CSV 데이터 불러오기
+- 시간 필터링: `datetime` 모듈로 시간 추출
+- 승하차 인원 `groupby`로 집계
+- 역 정보와 `join`하여 위도/경도 결합
+- `folium` 라이브러리의 HeatMap으로 시각화
+
+ 3. 분석 결과 요약
+- 출근: 신림역(승차), 가산디지털단지·시청·서울역(하차) → 주거 ↔ 업무 이동 확인
+- 퇴근: 강남역(승차), 신림역(하차) → 업무 ↔ 주거 이동 집중
